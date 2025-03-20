@@ -45,10 +45,10 @@ async def create_schedule(schedule: schemas.ScheduleCreate, db=Depends(database.
     created_schedule = await schedule_crud.create_schedule(db, schedule)
     return created_schedule
 
-# Endpoint to get a schedule by ID
-@app.get("/schedules/{schedule_id}", response_model=schemas.Schedule)
-async def read_schedule(schedule_id: str, db=Depends(database.get_db)):
-    db_schedule = await schedule_crud.get_schedule(db, schedule_id)
+# Endpoint to get a schedule by Billboard ID
+@app.get("/schedules/{billboard_id}", response_model=list[schemas.Schedule])
+async def read_schedule(billboard_id: str, db=Depends(database.get_db)):
+    db_schedule = await schedule_crud.get_schedule(db, billboard_id)
     if db_schedule is None:
         raise HTTPException(status_code=404, detail="Schedule not found")
     return db_schedule
@@ -81,6 +81,6 @@ async def login(user: schemas.User):
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-@app.get("/dayschedules")
-async def read_schedules_24_hours(db=Depends(database.get_db), skip: int = 0, limit: int = 100):
-    return await schedule_crud.get_schedules_24(db, skip, limit)
+# @app.get("/dayschedules")
+# async def read_schedules_24_hours(db=Depends(database.get_db), skip: int = 0, limit: int = 100):
+#     return await schedule_crud.get_schedules_24(db, skip, limit)

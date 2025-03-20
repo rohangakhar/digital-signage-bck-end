@@ -20,7 +20,7 @@ async def get_billboard(db, billboard_id: str):
         billboard["id"] = str(billboard["_id"])
     return billboard
 
-async def get_billboards(db, skip: int = 0, limit: int = 10):
+async def get_billboards(db, skip: int = 0, limit: int = 100):
     billboards = []
     async for billboard in get_collection(db).find().skip(skip).limit(limit):
         billboard["id"] = str(billboard["_id"])

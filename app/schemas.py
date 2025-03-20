@@ -2,6 +2,7 @@
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+from typing import Literal
 
 class BillboardBase(BaseModel):
     title: str
@@ -20,6 +21,8 @@ class Billboard(BillboardBase):
 
 class ScheduleBase(BaseModel):
     billboard_id: str  # The billboard being shown
+    type: Literal['Video', 'Image']  # Now optional
+    url: Optional[str] 
     start_time: datetime  # When the schedule starts
     end_time: datetime  # When the schedule ends
 
