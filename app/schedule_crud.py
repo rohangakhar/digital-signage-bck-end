@@ -26,41 +26,41 @@ async def create_schedule(db, schedule: schemas.ScheduleCreate):
         billboard = await get_billboards_collection(db).find_one({"_id": ObjectId(schedule.billboard_id)})
     except:
         raise HTTPException(status_code=400,detail = "InvalidId: {ID} is not a valid ObjectId, it must be a 12-byte input or a 24-character hex string".format(ID = schedule.billboard_id))
-    if not billboard:
-        raise HTTPException(status_code=400, detail="Billboard with ID {schedule.billboard_id} does not exist.")
-    if(end_time_naive<current_time):
-        raise HTTPException(status_code=400, detail="Please book the slot for future time")
-    if(schedule.start_time > schedule.end_time):
-        raise HTTPException(status_code=400, detail="Start time can't be ahead of End time")
-    existing_schedule = await get_collection(db).find_one({
-        "billboard_id": schedule.billboard_id,
-        "$or": [
-            {
-            "start_time": {"$lt": schedule.end_time}, "end_time": {"$gt": schedule.start_time}   # New schedule ends after existing schedule starts
-            }
-        ]
-    })
+    # if not billboard:
+    #     raise HTTPException(status_code=400, detail="Billboard with ID {schedule.billboard_id} does not exist.")
+    # if(end_time_naive<current_time):
+    #     raise HTTPException(status_code=400, detail="Please book the slot for future time")
+    # if(schedule.start_time > schedule.end_time):
+    #     raise HTTPException(status_code=400, detail="Start time can't be ahead of End time")
+    # existing_schedule = await get_collection(db).find_one({
+    #     "billboard_id": schedule.billboard_id,
+    #     "$or": [
+    #         {
+    #         "start_time": {"$lt": schedule.end_time}, "end_time": {"$gt": schedule.start_time}   # New schedule ends after existing schedule starts
+    #         }
+    #     ]
+    # })
     
-    if existing_schedule:
-        current_end_time = existing_schedule["end_time"]
-        new_end_time = end_time_naive
-        if new_end_time > current_end_time:
-            result = await db.schedules.update_one(
-                {"billboard_id": schedule.billboard_id},
-                {"$set": {"end_time": new_end_time}}
-            )
-        final_result =  await get_collection(db).find_one({"billboard_id": schedule.billboard_id})
-        final_result['id'] = str(final_result['_id'])
-        del final_result['_id']
-        schedules_synced(db, schedule.billboard_id)
-        return final_result
-    else:
-        schedule_dict = schedule.model_dump()
-        result = await get_collection(db).insert_one(schedule_dict)
-        schedule_dict["id"] = str(result.inserted_id)
-        schedules_synced(db, schedule.billboard_id)
-        print(schedule_dict)
-        return schedule_dict
+    # if existing_schedule:
+    #     current_end_time = existing_schedule["end_time"]
+    #     new_end_time = end_time_naive
+    #     if new_end_time > current_end_time:
+    #         result = await db.schedules.update_one(
+    #             {"billboard_id": schedule.billboard_id},
+    #             {"$set": {"end_time": new_end_time}}
+    #         )
+    #     final_result =  await get_collection(db).find_one({"billboard_id": schedule.billboard_id})
+    #     final_result['id'] = str(final_result['_id'])
+    #     del final_result['_id']
+    #     schedules_synced(db, schedule.billboard_id)
+    #     return final_result
+    # else:
+    schedule_dict = schedule.model_dump()
+    result = await get_collection(db).insert_one(schedule_dict)
+    schedule_dict["id"] = str(result.inserted_id)
+    schedules_synced(db, schedule.billboard_id)
+    print(schedule_dict)
+    return schedule_dict
 
 # Get a schedule by Billboard_ID
 async def get_schedule(db, billboard_id: str):
