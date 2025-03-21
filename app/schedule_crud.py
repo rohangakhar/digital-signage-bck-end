@@ -1,7 +1,7 @@
 from app import schemas
 from motor.motor_asyncio import AsyncIOMotorCollection
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 
@@ -13,6 +13,11 @@ def get_collection(db):
 def get_billboards_collection(db):
     return db.billboards
 
+def convert_to_utc(datetime_obj):
+    if datetime_obj.tzinfo is None:  # Check if datetime is naive
+        # Make the datetime UTC-aware
+        return datetime_obj.replace(tzinfo=timezone.utc)
+    return datetime_obj.astimezone(timezone.utc)
 # Create a new schedule
 async def create_schedule(db, schedule: schemas.ScheduleCreate):
     current_time = datetime.utcnow()
@@ -54,6 +59,7 @@ async def create_schedule(db, schedule: schemas.ScheduleCreate):
         result = await get_collection(db).insert_one(schedule_dict)
         schedule_dict["id"] = str(result.inserted_id)
         schedules_synced(db, schedule.billboard_id)
+        print(schedule_dict)
         return schedule_dict
 
 # Get a schedule by Billboard_ID
@@ -64,9 +70,11 @@ async def get_schedule(db, billboard_id: str):
     schedule_list = await schedule_list.to_list(length=None)   
     for schedule in schedule_list:
         schedule['id'] = str(schedule['_id'])  # Convert ObjectId to string
+        schedule['start_time'] = convert_to_utc(schedule['start_time'])
+        schedule['end_time'] = convert_to_utc(schedule['end_time'])
         del schedule['_id']
     #make sure to send only schedules which are for next 24 hours    
-
+    
     return schedule_list
 
 # Get all schedules with pagination
