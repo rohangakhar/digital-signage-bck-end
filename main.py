@@ -20,7 +20,13 @@ origins = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
     "http://localhost:8082",
-    "http://127.0.0.1:8082"
+    "http://127.0.0.1:8082",
+    # "http://3.87.251.155:8082",
+    # "http://172.31.91.157:8082",
+    # "http://3.87.251.155:8081",
+    # "http://172.31.91.157:8081",
+    "http://ec2-3-87-251-155.compute-1.amazonaws.com:3000",
+    "http://ec2-3-87-251-155.compute-1.amazonaws.com:8010"
 ]
 
 app.add_middleware(
