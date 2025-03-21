@@ -27,7 +27,6 @@ async def create_schedule(db, schedule: schemas.ScheduleCreate):
         raise HTTPException(status_code=400, detail="Please book the slot for future time")
     if(schedule.start_time > schedule.end_time):
         raise HTTPException(status_code=400, detail="Start time can't be ahead of End time")
-    schedule_dict = schedule.model_dump()
     existing_schedule = await get_collection(db).find_one({
         "billboard_id": schedule.billboard_id,
         "$or": [
@@ -45,14 +44,23 @@ async def create_schedule(db, schedule: schemas.ScheduleCreate):
                 {"billboard_id": schedule.billboard_id},
                 {"$set": {"end_time": new_end_time}}
             )
-    final_result =  await get_collection(db).find_one({"billboard_id": schedule.billboard_id})
-    final_result['id'] = str(final_result['_id'])
-    del final_result['_id']
-    return final_result
+        final_result =  await get_collection(db).find_one({"billboard_id": schedule.billboard_id})
+        final_result['id'] = str(final_result['_id'])
+        del final_result['_id']
+        schedules_synced(db, schedule.billboard_id)
+        return final_result
+    else:
+        schedule_dict = schedule.model_dump()
+        result = await get_collection(db).insert_one(schedule_dict)
+        schedule_dict["id"] = str(result.inserted_id)
+        schedules_synced(db, schedule.billboard_id)
+        return schedule_dict
 
 # Get a schedule by Billboard_ID
 async def get_schedule(db, billboard_id: str):
-    schedule_list = db.schedules.find({ "billboard_id": billboard_id })
+    nowMinus24 = datetime.utcnow() - timedelta(hours=24)
+    schedule_list = db.schedules.find({ "billboard_id": billboard_id,
+        "end_time": {"$gte": nowMinus24} }).sort("start_time", 1)
     schedule_list = await schedule_list.to_list(length=None)   
     for schedule in schedule_list:
         schedule['id'] = str(schedule['_id'])  # Convert ObjectId to string
@@ -87,30 +95,14 @@ async def delete_schedule(db, schedule_id: str):
         return {"status": "Schedule deleted"}
     return {"status": "Schedule not found"}
 
-async def get_schedules_24(db, skip: int = 0, limit: int = 100):
-    # Get the current time
-    current_time = datetime.utcnow()
-
-    # Calculate the time range (current_time - 1 hour) and (current_time + 24 hours)
-    start_times = current_time - timedelta(hours=1)
-    end_times = current_time + timedelta(hours=24)
-
-    # Filter the collection based on the time range
-    query = {
-        "start_time": {
-            "$gt": start_times,  # greater than current_time - 1 hour
-            "$lte": end_times    # less than or equal to current_time + 24 hours
-        }
-    }
-
-    # Fetch the filtered schedules from the database
-    schedules = []
-    async for schedule in get_collection(db).find(query).skip(skip).limit(limit):
-        # Convert the ObjectId to a string and add to the schedule
-        schedule["id"] = str(schedule["_id"])  # This is where we convert the ObjectId to a string
-        del schedule["_id"]  # Optional: remove the _id field if you prefer to only return 'id'
-
-        # Add schedule to the list
-        schedules.append(schedule)
-
-    return schedules
+async def schedules_synced(db, billboard_id: str):
+    print("checking for {id}".format(id=billboard_id))
+    if(billboard_id != 'all'):
+        schedule_list = db.schedules_automated.find({ "billboard_id": billboard_id}).sort([("start_time", 1), ("billboard_id", 1)])
+    else:
+        schedule_list = db.schedules_automated.find().sort([("start_time", 1), ("billboard_id", 1)])
+    schedule_list = await schedule_list.to_list(length=None)   
+    for schedule in schedule_list:
+        schedule['id'] = str(schedule['_id'])  # Convert ObjectId to string
+        del schedule['_id']
+    return schedule_list

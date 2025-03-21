@@ -8,8 +8,6 @@ def get_collection(db):
 
 async def create_billboard(db, billboard: schemas.BillboardCreate):
     billboard_dict = billboard.model_dump()
-    print(billboard_dict)
-
     result = await get_collection(db).insert_one(billboard_dict)
     billboard_dict["id"] = str(result.inserted_id)
     return billboard_dict
@@ -22,7 +20,7 @@ async def get_billboard(db, billboard_id: str):
 
 async def get_billboards(db, skip: int = 0, limit: int = 100):
     billboards = []
-    async for billboard in get_collection(db).find().skip(skip).limit(limit):
+    async for billboard in get_collection(db).find().skip(skip).limit(limit).sort("price", 1):
         billboard["id"] = str(billboard["_id"])
         billboards.append(billboard)
     return billboards

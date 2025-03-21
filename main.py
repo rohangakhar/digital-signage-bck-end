@@ -1,13 +1,18 @@
 # app/main.py
 from fastapi import FastAPI, HTTPException, Depends
-from app import billboard_crud, schemas, database, schedule_crud
+from app import billboard_crud, schemas, database, schedule_crud, automated_scheduler
 from fastapi.responses import JSONResponse
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from datetime import datetime, timedelta
+import asyncio
 
 app = FastAPI()
 
 @app.on_event("startup")
 async def startup_db():
     await database.init_db(app)
+    start_scheduler()
 
 @app.post("/billboards/", response_model=schemas.Billboard)
 async def create_billboard(billboard: schemas.BillboardCreate, db=Depends(database.get_db)):
@@ -49,9 +54,7 @@ async def create_schedule(schedule: schemas.ScheduleCreate, db=Depends(database.
 @app.get("/schedules/{billboard_id}", response_model=list[schemas.Schedule])
 async def read_schedule(billboard_id: str, db=Depends(database.get_db)):
     db_schedule = await schedule_crud.get_schedule(db, billboard_id)
-    if db_schedule is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-    return db_schedule
+    return db_schedule if db_schedule else []
 
 # Endpoint to get all schedules with pagination
 @app.get("/schedules/", response_model=list[schemas.Schedule])
@@ -62,9 +65,7 @@ async def read_schedules(skip: int = 0, limit: int = 100, db=Depends(database.ge
 @app.put("/schedules/{schedule_id}", response_model=schemas.Schedule)
 async def update_schedule(schedule_id: str, schedule: schemas.ScheduleCreate, db=Depends(database.get_db)):
     updated_schedule = await schedule_crud.update_schedule(db, schedule_id, schedule.dict())
-    if updated_schedule is None:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-    return updated_schedule
+    return updated_schedule if updated_schedule else []
 
 # Endpoint to delete a schedule by ID
 @app.delete("/schedules/{schedule_id}", response_model=schemas.Schedule)
@@ -81,6 +82,32 @@ async def login(user: schemas.User):
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-# @app.get("/dayschedules")
-# async def read_schedules_24_hours(db=Depends(database.get_db), skip: int = 0, limit: int = 100):
-#     return await schedule_crud.get_schedules_24(db, skip, limit)
+@app.get("/schedules_synced/{billboard_id}", response_model=list[schemas.Schedule])
+async def schedules_synced(billboard_id:str, db=Depends(database.get_db)):
+    db_schedule = await schedule_crud.schedules_synced(db, billboard_id)
+    return db_schedule if db_schedule else []
+@app.post("/test")
+async def test(db=Depends(database.get_db)):
+    await automated_scheduler.truncate_and_reinsert_schedules(db)
+
+async def automated_reschedules(db):
+    await automated_scheduler.truncate_and_reinsert_schedules(db)
+
+
+# APScheduler background job function
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+    loop = asyncio.get_event_loop()
+
+    # Create a job that triggers every 15 minutes
+    scheduler.add_job(
+        lambda: asyncio.run_coroutine_threadsafe(automated_reschedules(database.get_db()), loop),
+        IntervalTrigger(minutes=15),
+        id='truncate_and_reinsert_job',  # Unique job ID
+        name='Truncate and reinsert schedules every 15 minutes',
+        replace_existing=True  # Replaces the job if it already exists
+    )
+
+    # Start the scheduler
+    scheduler.start()
+    

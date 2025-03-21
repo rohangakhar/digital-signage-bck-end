@@ -7,7 +7,7 @@ fastapi==0.115.11
 h11==0.14.0
 idna==3.10
 motor==3.7.0
-psycopg2==2.9.10
+psycopg2-binary==2.9.10
 pydantic==2.10.6
 pydantic_core==2.27.2
 pymongo==4.11.3
@@ -16,3 +16,4 @@ SQLAlchemy==2.0.39
 starlette==0.46.1
 typing_extensions==4.12.2
 uvicorn==0.34.0
+APScheduler==3.11.0
